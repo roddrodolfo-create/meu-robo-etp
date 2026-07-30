@@ -1,59 +1,59 @@
-import sys
-import time
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+import streamlit as st
+from docx import Document
+import io
+import os
 
-# Captura apenas o texto do Objeto enviado pelo painel do celular
-if len(sys.argv) > 1:
-    objeto_etp = sys.argv[1]
+# Configuração visual elegante adaptada para telas de celular
+st.set_page_config(page_title="Gerador de ETP Digital", page_icon="📝")
+
+st.markdown("<h2 style='text-align: center; color: #0284c7;'>📝 Gerador de ETP Digital</h2>", unsafe_allow_html=True)
+st.write("Digite as informações abaixo para preencher o seu modelo oficial automaticamente:")
+
+# Caixa de entrada para o usuário digitar o texto do objeto
+objeto_input = st.text_area("📝 Descrição do Objeto do ETP", placeholder="Ex: Aquisição de licenças de software...", height=150)
+
+# O processo ocorre de forma instantânea diretamente na memória
+if objeto_input:
+    try:
+        # 1. Abre o seu modelo original que está guardado no GitHub
+        if not os.path.exists("modelo_etp.docx"):
+            st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
+        else:
+            doc = Document("modelo_etp.docx")
+            
+            # 2. Varre o documento e substitui as tags pelo texto digitado
+            for paragrafo in doc.paragraphs:
+                if "{{ objeto }}" in paragrafo.text:
+                    paragrafo.text = paragrafo.text.replace("{{ objeto }}", objeto_input)
+            
+            # Varre tabelas também, caso a tag esteja dentro de uma tabela
+            for tabela in doc.tables:
+                for linha in tabela.rows:
+                    for celula in line.cells if hasattr(linha, 'cells') else linha.cells:
+                        if "{{ objeto }}" in celula.text:
+                            celula.text = celula.text.replace("{{ objeto }}", objeto_input)
+            
+            # 3. Prepara o arquivo para download sem precisar salvar no servidor
+            buffer = io.BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            
+            st.success("✅ Documento estruturado com sucesso!")
+            
+            # 4. CRIA O BOTÃO GRANDE DE DOWNLOAD PARA O CELULAR
+            st.download_button(
+                label="📥 BAIXAR DOCUMENTO ETP (.DOCX)",
+                data=buffer,
+                file_name="ETP_Digital_Preenchido.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+            st.balloons() # Animação de comemoração na tela do smartphone
+            
+    except Exception as e:
+        st.error(f"❌ Ocorreu um erro ao processar o modelo: {e}")
 else:
-    print("❌ Erro: Nenhum objeto foi enviado pelo aplicativo.")
-    sys.exit(1)
+    st.info("💡 Aguardando digitação para liberar o botão de download.")
 
-print(f"🤖 Robô Iniciado! Processando o objeto de ETP...")
-
-# ==============================================================================
-# CONFIGURAÇÃO DO NAVEGADOR COM MÁSCARA HUMANA (EVITA ERROS DE JAVASCRIPT)
-# ==============================================================================
-chrome_options = Options()
-chrome_options.add_argument("--headless")  
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--window-size=1920,1080")
-
-# Altera o User-Agent para o servidor não descobrir que é um robô rodando
-chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-# Inicia o navegador na nuvem
-servico = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=servico, options=chrome_options)
-wait = WebDriverWait(driver, 20)
-
-try:
-    # ==============================================================================
-    # INDO DIRETO PARA O PREENCHEDOR DE ETP
-    # ==============================================================================
-    print("🔗 Abrindo a tela direta do preenchedor de ETP...")
-    
-    # !!! SUBSTITUA A URL ABAIXO PELA URL DIRETA DA TELA DO SEU COMPRASNET ONDE COLA O OBJETO !!!
-    driver.get("https://www.gov.br")  
-    time.sleep(5)
-    
-    # Executa os passos de cliques e preenchimentos que você já tinha no seu robô original:
-    print(f"📝 Inserindo o texto no campo Objeto: '{objeto_etp[:30]}...'")
-    
-    # (Cole aqui embaixo a continuação do seu código que interage com a tela do ETP)
-    
-    print("🎉 Processamento do ETP concluído com sucesso!")
-
-except Exception as e:
-    print(f"❌ Ocorreu uma falha no preenchimento do formulário: {e}")
-
-finally:
     driver.quit()
     print("🔌 Processo encerrado.")
