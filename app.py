@@ -1,40 +1,58 @@
 import streamlit as st
-import subprocess
+from docx import Document
+import io
 
-# Deixa o design elegante e adaptado para a tela do celular
-st.set_page_config(page_title="Robô ETP Digital", page_icon="🤖")
+# Configuração visual elegante adaptada para telas de celular
+st.set_page_config(page_title="Gerador de ETP Digital", page_icon="📝")
 
-st.markdown("<h2 style='text-align: center; color: #0284c7;'>🤖 Gerador de ETP Digital</h2>", unsafe_allow_html=True)
-st.write("Digite o conteúdo abaixo para preencher o seu Estudo Técnico Preliminar diretamente:")
+st.markdown("<h2 style='text-align: center; color: #0284c7;'>📝 Gerador de ETP Digital</h2>", unsafe_allow_html=True)
+st.write("Digite as informações abaixo para preencher o seu modelo oficial automaticamente:")
 
-# O usuário digita APENAS o objeto do documento
-objeto = st.text_area("📝 Descrição do Objeto do ETP", placeholder="Ex: Aquisição de licenças de software...", height=150)
+# Caixa de entrada para o usuário digitar o texto do objeto
+objeto_input = st.text_area("📝 Descrição do Objeto do ETP", placeholder="Ex: Aquisição de licenças de software...", height=150)
 
-# Botão direto para rodar o preenchedor
-if st.button("🚀 GERAR ETP IMEDIATAMENTE"):
-    if not objeto:
-        st.error("❌ Por favor, digite a descrição do objeto antes de ligar o robô!")
-    else:
-        with st.spinner("O robô está trabalhando na tela direta do ETP... Aguarde."):
-            try:
-                # Envia o objeto de forma isolada e segura para o robô
-                comando = ["python", "preencher_etp.py", objeto]
-                
-                # Executa o seu script em segundo plano com segurança
-                resultado = subprocess.run(comando, capture_output=True, text=True)
-                
-                # Mostra o progresso do terminal na tela do celular
-                if resultado.stdout:
-                    st.code(resultado.stdout)
-                
-                if resultado.returncode == 0:
-                    st.success("✅ Processo do ETP enviado com sucesso!")
-                    st.balloons()
-                else:
-                    st.error("❌ O robô parou com um aviso.")
-                    if resultado.stderr:
-                        st.error(resultado.stderr)
-                    
-            except Exception as e:
-                st.error(f"Erro ao iniciar o robô: {e}")
+# O processo ocorre de forma instantânea diretamente na memória
+if objeto_input:
+    try:
+        # 1. Abre o seu modelo original que está guardado no GitHub
+        if not os.path.exists("modelo_etp.docx"):
+            st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
+        else:
+            doc = Document("modelo_etp.docx")
+            
+            # 2. Varre o documento e substitui as tags pelo texto digitado
+            # (Substitua "{{ objeto }}" pela tag exata que está escrita no seu Word)
+            for paragrafo in doc.paragraphs:
+                if "{{ objeto }}" in paragrafo.text:
+                    paragrafo.text = paragrafo.text.replace("{{ objeto }}", objeto_input)
+            
+            # Varre tabelas também, caso a tag esteja dentro de uma tabela
+            for tabela in doc.tables:
+                for linha in tabela.rows:
+                    for celula in linha.cells:
+                        if "{{ objeto }}" in celula.text:
+                            celula.text = celula.text.replace("{{ objeto }}", objeto_input)
+            
+            # 3. Prepara o arquivo para download sem precisar salvar no servidor
+            buffer = io.BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            
+            st.success("✅ Documento estruturado com sucesso!")
+            
+            # 4. CRIA O BOTÃO GRANDE DE DOWNLOAD PARA O CELULAR
+            st.download_button(
+                label="📥 BAIXAR DOCUMENTO ETP (.DOCX)",
+                data=buffer,
+                file_name="ETP_Digital_Preenchido.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+            st.balloons() # Animação de comemoração na tela do smartphone
+            
+    except Exception as e:
+        st.error(f"❌ Ocorreu um erro ao processar o modelo: {e}")
+else:
+    st.info("💡 Aguardando digitação para liberar o botão de download.")
+
 
