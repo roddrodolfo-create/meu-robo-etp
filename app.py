@@ -2,31 +2,31 @@ import streamlit as st
 import subprocess
 import os
 
-# Configuração da página bonita para celular
+# Configuração visual do aplicativo para telas de celular
 st.set_page_config(page_title="Robô ETP Digital", page_icon="🤖")
 
 st.markdown("<h2 style='text-align: center; color: #0284c7;'>🤖 Assistente ETP Digital</h2>", unsafe_allow_html=True)
-st.write("Insira os dados para ativar o seu robô Python na nuvem:")
+st.write("Insira seus dados abaixo para ativar o robô preenchedor na nuvem:")
 
-# Caixas de texto para você preencher pelo smartphone
+# Caixas de texto limpas (os dados somem assim que fechar a aba)
 cpf = st.text_input("👤 CPF do GOV.BR")
 senha = st.text_input("🔑 Senha do GOV.BR", type="password")
 objeto = st.text_area("📝 Descrição do Objeto do ETP")
 
-# Botão para ligar o seu robô real
+# Botão direto para ligar o robô
 if st.button("🚀 LIGAR PREENCHEDOR AUTOMÁTICO"):
     if not cpf or not senha or not objeto:
         st.error("❌ Por favor, preencha todos os campos antes de continuar.")
     else:
         with st.spinner("O seu robô Python está rodando no servidor... Acompanhe abaixo:"):
             try:
-                # Comando correto apontando para o seu arquivo preencher_etp.py
+                # Comando que chama o seu arquivo preencher_etp.py real
                 comando = f"python preencher_etp.py '{cpf}' '{senha}' '{objeto}'"
                 
-                # Executa o seu robô em segundo plano e captura as mensagens dele
+                # Executa o seu robô em segundo plano e captura o terminal
                 resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
                 
-                # Mostra o que o seu robô escreveu no terminal
+                # Mostra o progresso do terminal na tela do celular
                 if resultado.stdout:
                     st.code(resultado.stdout)
                 
@@ -40,6 +40,7 @@ if st.button("🚀 LIGAR PREENCHEDOR AUTOMÁTICO"):
                     
             except Exception as e:
                 st.error(f"Erro ao iniciar o processo do robô: {e}")
+
 
                 st.error(f"Erro no sistema: {erro}")
 
