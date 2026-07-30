@@ -1,11 +1,11 @@
 import streamlit as st
 import subprocess
 
-# Configuração visual direta do aplicativo para celular
+# Configuração visual direta do aplicativo
 st.set_page_config(page_title="Robô ETP Digital", page_icon="🤖")
 
 st.markdown("<h2 style='text-align: center; color: #0284c7;'>🤖 Gerador de ETP Digital</h2>", unsafe_allow_html=True)
-st.write("Digite o conteúdo abaixo para gerar o seu Estudo Técnico Preliminar diretamente:")
+st.write("Digite o conteúdo abaixo para gerar o seu Estudo Técnico Preliminar:")
 
 # O usuário digita APENAS o objeto do documento
 objeto = st.text_area("📝 Descrição do Objeto do ETP", placeholder="Ex: Aquisição de licenças de software...")
@@ -18,10 +18,10 @@ if st.button("🚀 GERAR ETP IMEDIATAMENTE"):
         with st.spinner("O robô está trabalhando no portal do Governo Federal..."):
             try:
                 # O comando agora envia apenas o objeto para o seu robô preencher_etp.py
-                comando = f"python preencher_etp.py '{objeto}'"
+                comando = ["python", "preencher_etp.py", objeto]
                 
-                # Executa o seu script em segundo plano
-                resultado = subprocess.run(comando, shell=True, capture_output=True, text=True)
+                # Executa o seu script em segundo plano com segurança
+                resultado = subprocess.run(comando, capture_output=True, text=True)
                 
                 # Mostra o progresso na tela do celular
                 if resultado.stdout:
