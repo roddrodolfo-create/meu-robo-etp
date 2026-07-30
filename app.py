@@ -1,7 +1,7 @@
 import streamlit as st
 import subprocess
 
-# Configuração visual direta do aplicativo
+# Configuração visual direta do aplicativo para celular
 st.set_page_config(page_title="Robô ETP Digital", page_icon="🤖")
 
 st.markdown("<h2 style='text-align: center; color: #0284c7;'>🤖 Gerador de ETP Digital</h2>", unsafe_allow_html=True)
