@@ -92,7 +92,7 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
                 else:
-                    # 1. Abre e preenche o corpo normal com DocxTemplate
+                    # 1. Abre e preenche o corpo normal com DocxTemplate (Substitui secretaria_demandante2 e objeto)
                     doc_tpl = DocxTemplate("modelo_etp.docx")
                     doc_tpl.render(dados_etp)
                     
@@ -104,27 +104,31 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     # 2. Abre usando python-docx tradicional para forçar a varredura do Cabeçalho
                     doc_final = docx.Document(buffer_intermediario)
                     
-                    # Percorre todas as seções e tabelas de cabeçalho unificando o texto fragmentado pelo Word
+                    # Alvos mapeados com e sem os espaços para blindar contra variações de digitação no Word
+                    tags_alvo = ['{{ secretaria_demandante1 }}', '{{secretaria_demandante1}}']
+                    
+                    # Percorre todas as seções e tabelas de cabeçalho
                     for section in doc_final.sections:
                         header = section.header
                         if header is not None:
                             # Varre parágrafos soltos no cabeçalho
                             for paragraph in header.paragraphs:
                                 texto_completo = paragraph.text
-                                if '{{ secretaria_demandante1 }}' in texto_completo:
-                                    novo_texto = texto_completo.replace('{{ secretaria_demandante1 }}', secretaria)
-                                    # Limpa os fragmentos internos e define o texto limpo unificado
-                                    paragraph.text = novo_texto
+                                for tag in tags_alvo:
+                                    if tag in texto_completo:
+                                        texto_completo = texto_completo.replace(tag, secretaria)
+                                paragraph.text = texto_completo
                             
-                            # Varre tabelas dentro do cabeçalho (comum em timbres oficiais)
+                            # Varre tabelas dentro do cabeçalho (caso o timbre esteja estruturado em tabela invisível)
                             for table in header.tables:
                                 for row in table.rows:
                                     for cell in row.cells:
                                         for paragraph in cell.paragraphs:
                                             texto_completo = paragraph.text
-                                            if '{{ secretaria_demandante1 }}' in texto_completo:
-                                                novo_texto = texto_completo.replace('{{ secretaria_demandante1 }}', secretaria)
-                                                paragraph.text = novo_texto
+                                            for tag in tags_alvo:
+                                                if tag in texto_completo:
+                                                    texto_completo = texto_completo.replace(tag, secretaria)
+                                            paragraph.text = texto_completo
                     
                     # Envia o arquivo preenchido final para a memória de download
                     buffer = io.BytesIO()
