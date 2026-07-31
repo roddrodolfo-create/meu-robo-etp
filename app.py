@@ -7,17 +7,25 @@ from datetime import date
 # Configuração visual profissional para smartphone
 st.set_page_config(page_title="Gerador ETP Oficial", page_icon="📝", layout="centered")
 
-st.markdown("<h2 style='text-align: center; color: #0284c7;'>📝 Preenchedor de ETP Digital</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: #0284c7;'>📝 Preenchedor de ETP Digital BOA ESPERANÇA - MG</h2>", unsafe_allow_html=True)
 st.write("Insira as informações abaixo para preencher o modelo oficial de Boa Esperança/MG:")
 
 # --- FORMULÁRIO DIVIDIDO POR SEÇÕES ---
 st.subheader("📌 Informações Básicas")
+# Trecho de código para substituir o cabeçalho (Header) também
+for section in doc.sections:
+    header = section.header
+    if header is not None:
+        for paragraph in header.paragraphs:
+            if '{{ secretaria_demandante1 }}' in paragraph.text:
+                paragraph.text = paragraph.text.replace('{{ secretaria_demandante1 }}', variavel_da_secretaria)
+
 secretaria = st.text_input("Secretaria demandante", value="Diretoria de Trânsito e Sinalização Pública")
 objeto = st.text_area("Objeto da Contratação", placeholder="Ex: Aquisição de materiais de sinalização...")
 
 st.subheader("📄 Itens do Formulário")
 desc_necessidade = st.text_area("1 - Descrição da necessidade da contratação")
-previsao_pac = st.text_area("2 - Previsão da contratação no PAC")
+previsao_pac = st.text_area("2 - Previsão da contratação no Plano Anual de Contratações")
 requisitos = st.text_area("3.1 - Requisitos da contratação")
 inicio_servicos = st.text_area("3.2 - Prazo de implantação e início dos serviços")
 tipo_prestacao = st.text_area("3.3 - Da prestação dos serviços")
