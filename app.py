@@ -1,5 +1,6 @@
 import streamlit as st
 from docxtpl import DocxTemplate
+import docx  # Importação necessária para manipular o cabeçalho isoladamente
 import io
 import os
 from datetime import date
@@ -12,20 +13,6 @@ st.write("Insira as informações abaixo para preencher o modelo oficial de Boa 
 
 # --- FORMULÁRIO DIVIDIDO POR SEÇÕES ---
 st.subheader("📌 Informações Básicas")
-# Trecho de código para substituir o cabeçalho (Header) também
-import docx  # Certifique-se de ter essa importação no topo do arquivo
-
-# 1. Carregue o arquivo do modelo primeiro (ajuste o caminho/nome do arquivo se necessário)
-doc = docx.Document("modelo_etp.docx") 
-
-# 2. Agora o laço funcionará sem NameError
-for section in doc.sections:
-    header = section.header
-    if header is not None:
-        for paragraph in header.paragraphs:
-            if '{{ secretaria_demandante1 }}' in paragraph.text:
-                # Substitua 'variavel_da_secretaria' pelo nome exato da variável do seu formulário
-paragraph.text = paragraph.text.replace('{{ secretaria_demandante1 }}', dados.get('secretaria_demandante1', ''))
 secretaria = st.text_input("Secretaria demandante", value="Diretoria de Trânsito e Sinalização Pública")
 objeto = st.text_area("Objeto da Contratação", placeholder="Ex: Aquisição de materiais de sinalização...")
 
@@ -105,15 +92,29 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
                 else:
-                    # Carrega o modelo usando a biblioteca correta de templates
-                    doc = DocxTemplate("modelo_etp.docx")
+                    # 1. Abre e preenche o corpo normal com DocxTemplate
+                    doc_tpl = DocxTemplate("modelo_etp.docx")
+                    doc_tpl.render(dados_etp)
                     
-                    # Substitui TODAS as tags de uma vez só usando o dicionário
-                    doc.render(dados_etp)
+                    # Salva temporariamente em memória para manipular o cabeçalho
+                    buffer_intermediario = io.BytesIO()
+                    doc_tpl.save(buffer_intermediario)
+                    buffer_intermediario.seek(0)
                     
-                    # Envia o arquivo preenchido para a memória de download
+                    # 2. Abre usando python-docx tradicional para acessar o cabeçalho (Header)
+                    doc_final = docx.Document(buffer_intermediario)
+                    
+                    # Percorre as seções para alterar o texto dentro do cabeçalho
+                    for section in doc_final.sections:
+                        header = section.header
+                        if header is not None:
+                            for paragraph in header.paragraphs:
+                                if '{{ secretaria_demandante1 }}' in paragraph.text:
+                                    paragraph.text = paragraph.text.replace('{{ secretaria_demandante1 }}', secretaria)
+                    
+                    # Envia o arquivo preenchido final para a memória de download
                     buffer = io.BytesIO()
-                    doc.save(buffer)
+                    doc_final.save(buffer)
                     buffer.seek(0)
                     
                     st.success("✅ ETP estruturado com sucesso!")
@@ -125,6 +126,5 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True
                     )
-                    st.balloons()
             except Exception as e:
-                st.error(f"❌ Erro ao renderizar o modelo Jinja2: {e}")
+                st.error(f"❌ Ocorreu um erro ao processar o documento: {e}")
