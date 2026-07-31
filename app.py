@@ -25,9 +25,7 @@ for section in doc.sections:
         for paragraph in header.paragraphs:
             if '{{ secretaria_demandante1 }}' in paragraph.text:
                 # Substitua 'variavel_da_secretaria' pelo nome exato da variável do seu formulário
-                paragraph.text = paragraph.text.replace('{{ secretaria_demandante1 }}', variavel_da_secretaria)
-
-
+paragraph.text = paragraph.text.replace('{{ secretaria_demandante1 }}', dados.get('secretaria_demandante1', ''))
 secretaria = st.text_input("Secretaria demandante", value="Diretoria de Trânsito e Sinalização Pública")
 objeto = st.text_area("Objeto da Contratação", placeholder="Ex: Aquisição de materiais de sinalização...")
 
