@@ -3,6 +3,7 @@ from docxtpl import DocxTemplate
 import io
 import os
 import zipfile
+import re
 from datetime import date
 
 # Configuração visual profissional para smartphone
@@ -83,47 +84,40 @@ dados_etp = {
 
 st.markdown("---")
 
-def forcar_substituicao_xml(caminho_modelo, texto_substituto):
-    """Substitui cirurgicamente a tag no arquivo XML interno do Word bypassando lixos de formatação"""
+def forcar_substituicao_xml_avancada(caminho_modelo, texto_substituto):
+    """Varre agressivamente todas as camadas e sub-arquivos de cabeçalho no zip do Word"""
     with open(caminho_modelo, 'rb') as f:
         orig_bytes = f.read()
         
     in_buf = io.BytesIO(orig_bytes)
     out_buf = io.BytesIO()
     
-    # Lista de possíveis quebras e variações que o Word gera em segundo plano para a tag do cabeçalho
-    alvos_xml = [
-        '{{secretaria_demandante1}}',
-        '{{ secretaria_demandante1 }}',
-        '{ {secretaria_demandante1} }',
-        '{ { secretaria_demandante1 } }'
-    ]
-    
     with zipfile.ZipFile(in_buf, 'r') as yin:
         with zipfile.ZipFile(out_buf, 'w', zipfile.ZIP_DEFLATED) as yout:
             for item in yin.infolist():
                 conteudo = yin.read(item.filename)
                 
-                # Se for um arquivo de cabeçalho (ex: word/header1.xml, header2.xml)
-                if "word/header" in item.filename and ".xml" in item.filename:
-                    # Converte o XML para string para fazer o replace de texto puro
+                # Intercepta absolutamente qualquer arquivo XML interno de cabeçalho ou rodapé
+                if "word/header" in item.filename and item.filename.endswith(".xml"):
                     xml_str = conteudo.decode('utf-8', errors='ignore')
                     
-                    # Se achar a tag inteira, substitui
-                    substituiu = False
-                    for alvo in alvos_xml:
-                        if alvo in xml_str:
-                            xml_str = xml_str.replace(alvo, texto_substituto)
-                            substituiu = True
-                            
-                    # Se o Word quebrou a tag com marcações XML internas de formatação (Runs)
-                    if not substituiu and 'secretaria_demandante1' in xml_str:
-                        import re
-                        # Expressão regular avançada para limpar marcações XML que dividem as chaves da palavra
-                        xml_str = re.sub(r'\{\{\s*<[^>]+>\s*secretaria_demandante1\s*<[^>]+>\s*\}\}', texto_substituto, xml_str)
-                        xml_str = re.sub(r'\{\s*<[^>]+>\s*\{\s*<[^>]+>\s*secretaria_demandante1\s*<[^>]+>\s*\}\s*<[^>]+>\s*\}', texto_substituto, xml_str)
-                        # Fallback agressivo: se a palavra chave pura estiver lá dentro do cabeçalho isolada
-                        xml_str = xml_str.replace('{{secretaria_demandante1}}', texto_substituto)
+                    # 1. Substituições diretas para variações comuns com e sem espaços
+                    xml_str = xml_str.replace('{{secretaria_demandante1}}', texto_substituto)
+                    xml_str = xml_str.replace('{{ secretaria_demandante1 }}', texto_substituto)
+                    xml_str = xml_str.replace('{{ secretaria_demandante1}}', texto_substituto)
+                    xml_str = xml_str.replace('{{secretaria_demandante1 }}', texto_substituto)
+                    
+                    # 2. Varredura com Expressões Regulares caso o Word tenha inserido tags de estilo (Runs) no meio das chaves
+                    xml_str = re.sub(r'\{\{\s*<[^>]+>\s*secretaria_demandante1\s*<[^>]+>\s*\}\}', texto_substituto, xml_str)
+                    xml_str = re.sub(r'\{\s*<[^>]+>\s*\{\s*<[^>]+>\s*secretaria_demandante1\s*<[^>]+>\s*\}\s*<[^>]+>\s*\}', texto_substituto, xml_str)
+                    
+                    # 3. Fallback agressivo: se encontrar o termo 'secretaria_demandante1' isolado em qualquer bloco de parágrafo XML
+                    if 'secretaria_demandante1' in xml_str:
+                        # Substitui o bloco inteiro de texto contido dentro da tag XML de texto do Word <w:t>
+                        xml_str = re.sub(r'<w:t>[^<]*secretaria_demandante1[^<]*</w:t>', f'<w:t>{texto_substituto}</w:t>', xml_str)
+                        # Remove chaves órfãs que possam ter ficado em tags de texto vizinhas
+                        xml_str = xml_str.replace('<w:t>{{</w:t>', '<w:t></w:t>').replace('<w:t>}}</w:t>', '<w:t></w:t>')
+                        xml_str = xml_str.replace('<w:t>{ {</w:t>', '<w:t></w:t>').replace('<w:t>} }</w:t>', '<w:t></w:t>')
                     
                     conteudo = xml_str.encode('utf-8')
                 
@@ -142,23 +136,23 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
                 else:
-                    # 1. Aplica a correção de força bruta XML no cabeçalho primeiro
-                    buffer_cabecalho_corrigido = forcar_substituicao_xml("modelo_etp.docx", secretaria)
+                    # 1. Aplica a correção forçada em todos os arquivos XML de cabeçalho primeiro
+                    buffer_corrigido = forcar_substituicao_xml_avancada("modelo_etp.docx", secretaria)
                     
-                    # 2. Carrega o documento modificado no DocxTemplate para renderizar o corpo principal normalmente
-                    doc = DocxTemplate(buffer_cabecalho_corrigido)
+                    # 2. Alimenta o DocxTemplate com o arquivo já modificado para fazer o resto do corpo
+                    doc = DocxTemplate(buffer_corrigido)
                     doc.render(dados_etp, auto_header_footer=True)
                     
-                    # Envia o arquivo finalizado direto para o download do Streamlit
-                    buffer = io.BytesIO()
-                    doc.save(buffer)
-                    buffer.seek(0)
+                    # Salva e prepara o download para o usuário
+                    buffer_final = io.BytesIO()
+                    doc.save(buffer_final)
+                    buffer_final.seek(0)
                     
                     st.success("✅ ETP estruturado com sucesso!")
                     
                     st.download_button(
                         label="📥 BAIXAR ETP PREENCHIDO (.DOCX)",
-                        data=buffer,
+                        data=buffer_final,
                         file_name=f"ETP_{secretaria[:15]}.docx",
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True
