@@ -82,6 +82,30 @@ dados_etp = {
 
 st.markdown("---")
 
+def substituir_no_cabecalho(paragraph, texto_substituto):
+    """Une fragmentos quebrados pelo Word e força a substituição da tag"""
+    texto_completo = "".join([run.text for run in paragraph.runs])
+    
+    # Mapeia variações de escrita com e sem espaços internos
+    alvos = ['{{ secretaria_demandante1 }}', '{{secretaria_demandante1}}']
+    
+    substituiu = False
+    for alvo in alvos:
+        if alvo in texto_completo:
+            texto_completo = texto_completo.replace(alvo, texto_substituto)
+            substituiu = True
+            
+    if substituiu:
+        # Mantém a formatação do primeiro fragmento se houver, limpa o resto e injeta o texto correto
+        if len(paragraph.runs) > 0:
+            p_run = paragraph.runs[0]
+            p_run.text = texto_completo
+            # Apaga os fragmentos fantasmas que quebravam a lógica
+            for r in paragraph.runs[1:]:
+                r.text = ""
+        else:
+            paragraph.text = texto_completo
+
 # --- PROCESSAMENTO DO MODELO ---
 if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
     if not objeto or not desc_necessidade:
@@ -104,31 +128,20 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     # 2. Abre usando python-docx tradicional para forçar a varredura do Cabeçalho
                     doc_final = docx.Document(buffer_intermediario)
                     
-                    # Alvos mapeados com e sem os espaços para blindar contra variações de digitação no Word
-                    tags_alvo = ['{{ secretaria_demandante1 }}', '{{secretaria_demandante1}}']
-                    
-                    # Percorre todas as seções e tabelas de cabeçalho
+                    # Percorre todas as seções e tabelas de cabeçalho aplicando o reconstrutor de parágrafos
                     for section in doc_final.sections:
                         header = section.header
                         if header is not None:
-                            # Varre parágrafos soltos no cabeçalho
+                            # Corrige parágrafos soltos no cabeçalho
                             for paragraph in header.paragraphs:
-                                texto_completo = paragraph.text
-                                for tag in tags_alvo:
-                                    if tag in texto_completo:
-                                        texto_completo = texto_completo.replace(tag, secretaria)
-                                paragraph.text = texto_completo
+                                substituir_no_cabecalho(paragraph, secretaria)
                             
-                            # Varre tabelas dentro do cabeçalho (caso o timbre esteja estruturado em tabela invisível)
+                            # Corrige tabelas dentro do cabeçalho (caso o timbre use tabelas estruturais)
                             for table in header.tables:
                                 for row in table.rows:
                                     for cell in row.cells:
                                         for paragraph in cell.paragraphs:
-                                            texto_completo = paragraph.text
-                                            for tag in tags_alvo:
-                                                if tag in texto_completo:
-                                                    texto_completo = texto_completo.replace(tag, secretaria)
-                                            paragraph.text = texto_completo
+                                            substituir_no_cabecalho(paragraph, secretaria)
                     
                     # Envia o arquivo preenchido final para a memória de download
                     buffer = io.BytesIO()
@@ -146,3 +159,4 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     )
             except Exception as e:
                 st.error(f"❌ Ocorreu um erro ao processar o documento: {e}")
+                                                     
