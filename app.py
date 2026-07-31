@@ -48,7 +48,7 @@ conclusao = st.text_area("13 - Conclusão")
 
 # --- CONSTRUÇÃO DO DICIONÁRIO DE DADOS ---
 dados_etp = {
-    "secretaria_demandante1": secretaria,  # Adicionado para o mapeamento direto no cabeçalho
+    "secretaria_demandante1": secretaria,
     "secretaria_demandante2": secretaria,
     "objeto": objeto,
     "descricao_necessidade": desc_necessidade,
@@ -84,14 +84,15 @@ dados_etp = {
 st.markdown("---")
 
 def substituir_no_cabecalho(paragraph, texto_substituto):
-    """Une fragmentos quebrados pelo Word e força a substituição limpa da tag"""
+    """Garante a unificação dos fragmentos de texto do Word e injeta a variável"""
     if not paragraph.runs:
         return
         
+    # Agrupa o texto completo do parágrafo somando todos os fragmentos dele
     texto_completo = "".join([run.text for run in paragraph.runs])
     
-    # Mapeia variações de escrita com e sem espaços internos
-    alvos = ['{{ secretaria_demandante1 }}', '{{secretaria_demandante1}}']
+    # Mapeia variações comuns que o Word cria internamente com espaços
+    alvos = ['{{ secretaria_demandante1 }}', '{{secretaria_demandante1}}', '{{ secretaria_demandante1}}', '{{secretaria_demandante1 }}']
     
     substituiu = False
     for alvo in alvos:
@@ -100,11 +101,11 @@ def substituir_no_cabecalho(paragraph, texto_substituto):
             substituiu = True
             
     if substituiu:
-        # Grava o texto limpo e corrigido estritamente no primeiro fragmento (run)
+        # Define o texto corrigido no primeiro fragmento do parágrafo
         paragraph.runs[0].text = texto_completo
-        # Apaga os fragmentos remanescentes fantasmas que quebravam a lógica visual
-        for r in paragraph.runs[1:]:
-            r.text = ""
+        # Limpa todos os outros fragmentos subsequentes para não duplicar o texto visualmente
+        for i in range(1, len(paragraph.runs)):
+            paragraph.runs[i].text = ""
 
 # --- PROCESSAMENTO DO MODELO ---
 if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
@@ -116,7 +117,7 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
                 else:
-                    # 1. Abre e força o DocxTemplate a processar corpo e sub-elementos
+                    # 1. Abre e preenche o corpo normal com DocxTemplate
                     doc_tpl = DocxTemplate("modelo_etp.docx")
                     doc_tpl.render(dados_etp)
                     
@@ -125,17 +126,17 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     doc_tpl.save(buffer_intermediario)
                     buffer_intermediario.seek(0)
                     
-                    # 2. Varredura secundária cirúrgica com python-docx
+                    # 2. Varredura manual secundária focada no Cabeçalho das seções
                     doc_final = docx.Document(buffer_intermediario)
                     
                     for section in doc_final.sections:
                         header = section.header
                         if header is not None:
-                            # Corrige parágrafos avulsos no cabeçalho
+                            # Varre parágrafos avulsos no topo
                             for paragraph in header.paragraphs:
                                 substituir_no_cabecalho(paragraph, secretaria)
                             
-                            # Corrige tabelas/timbres estruturados dentro do cabeçalho
+                            # Varre parágrafos contidos em tabelas/timbres do cabeçalho
                             for table in header.tables:
                                 for row in table.rows:
                                     for cell in row.cells:
