@@ -48,6 +48,7 @@ conclusao = st.text_area("13 - Conclusão")
 
 # --- CONSTRUÇÃO DO DICIONÁRIO DE DADOS ---
 dados_etp = {
+    "secretaria_demandante1": secretaria,  # Adicionado para o mapeamento direto no cabeçalho
     "secretaria_demandante2": secretaria,
     "objeto": objeto,
     "descricao_necessidade": desc_necessidade,
@@ -75,7 +76,7 @@ dados_etp = {
     "demonstrativo_resultados": demonstrativo_res,
     "providencias_previas": providencias_previas,
     "contratacoes_correlatas": contratacoes_corr,
-    "impactos_ambientais": impactos_amb,
+    "impactos_ambientais": impacts_amb,
     "conclusao": conclusao,
     "data": date.today().strftime("%d/%m/%Y")
 }
@@ -83,7 +84,10 @@ dados_etp = {
 st.markdown("---")
 
 def substituir_no_cabecalho(paragraph, texto_substituto):
-    """Une fragmentos quebrados pelo Word e força a substituição da tag"""
+    """Une fragmentos quebrados pelo Word e força a substituição limpa da tag"""
+    if not paragraph.runs:
+        return
+        
     texto_completo = "".join([run.text for run in paragraph.runs])
     
     # Mapeia variações de escrita com e sem espaços internos
@@ -96,15 +100,11 @@ def substituir_no_cabecalho(paragraph, texto_substituto):
             substituiu = True
             
     if substituiu:
-        # Mantém a formatação do primeiro fragmento se houver, limpa o resto e injeta o texto correto
-        if len(paragraph.runs) > 0:
-            p_run = paragraph.runs[0]
-            p_run.text = texto_completo
-            # Apaga os fragmentos fantasmas que quebravam a lógica
-            for r in paragraph.runs[1:]:
-                r.text = ""
-        else:
-            paragraph.text = texto_completo
+        # Grava o texto limpo e corrigido estritamente no primeiro fragmento (run)
+        paragraph.runs[0].text = texto_completo
+        # Apaga os fragmentos remanescentes fantasmas que quebravam a lógica visual
+        for r in paragraph.runs[1:]:
+            r.text = ""
 
 # --- PROCESSAMENTO DO MODELO ---
 if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
@@ -116,34 +116,33 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
                 else:
-                    # 1. Abre e preenche o corpo normal com DocxTemplate (Substitui secretaria_demandante2 e objeto)
+                    # 1. Abre e força o DocxTemplate a processar corpo e sub-elementos
                     doc_tpl = DocxTemplate("modelo_etp.docx")
                     doc_tpl.render(dados_etp)
                     
-                    # Salva temporariamente em memória para manipular o cabeçalho
+                    # Salva temporariamente para interceptação mecânica do cabeçalho
                     buffer_intermediario = io.BytesIO()
                     doc_tpl.save(buffer_intermediario)
                     buffer_intermediario.seek(0)
                     
-                    # 2. Abre usando python-docx tradicional para forçar a varredura do Cabeçalho
+                    # 2. Varredura secundária cirúrgica com python-docx
                     doc_final = docx.Document(buffer_intermediario)
                     
-                    # Percorre todas as seções e tabelas de cabeçalho aplicando o reconstrutor de parágrafos
                     for section in doc_final.sections:
                         header = section.header
                         if header is not None:
-                            # Corrige parágrafos soltos no cabeçalho
+                            # Corrige parágrafos avulsos no cabeçalho
                             for paragraph in header.paragraphs:
                                 substituir_no_cabecalho(paragraph, secretaria)
                             
-                            # Corrige tabelas dentro do cabeçalho (caso o timbre use tabelas estruturais)
+                            # Corrige tabelas/timbres estruturados dentro do cabeçalho
                             for table in header.tables:
                                 for row in table.rows:
                                     for cell in row.cells:
                                         for paragraph in cell.paragraphs:
                                             substituir_no_cabecalho(paragraph, secretaria)
                     
-                    # Envia o arquivo preenchido final para a memória de download
+                    # Envia o arquivo finalizado para o buffer do Streamlit
                     buffer = io.BytesIO()
                     doc_final.save(buffer)
                     buffer.seek(0)
@@ -159,4 +158,3 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     )
             except Exception as e:
                 st.error(f"❌ Ocorreu um erro ao processar o documento: {e}")
-                                                     
