@@ -13,12 +13,20 @@ st.write("Insira as informações abaixo para preencher o modelo oficial de Boa 
 # --- FORMULÁRIO DIVIDIDO POR SEÇÕES ---
 st.subheader("📌 Informações Básicas")
 # Trecho de código para substituir o cabeçalho (Header) também
+import docx  # Certifique-se de ter essa importação no topo do arquivo
+
+# 1. Carregue o arquivo do modelo primeiro (ajuste o caminho/nome do arquivo se necessário)
+doc = docx.Document("modelo_etp.docx") 
+
+# 2. Agora o laço funcionará sem NameError
 for section in doc.sections:
     header = section.header
     if header is not None:
         for paragraph in header.paragraphs:
             if '{{ secretaria_demandante1 }}' in paragraph.text:
+                # Substitua 'variavel_da_secretaria' pelo nome exato da variável do seu formulário
                 paragraph.text = paragraph.text.replace('{{ secretaria_demandante1 }}', variavel_da_secretaria)
+
 
 secretaria = st.text_input("Secretaria demandante", value="Diretoria de Trânsito e Sinalização Pública")
 objeto = st.text_area("Objeto da Contratação", placeholder="Ex: Aquisição de materiais de sinalização...")
