@@ -1,6 +1,6 @@
 import streamlit as st
 from docxtpl import DocxTemplate
-import docx  # Importação necessária para manipular o cabeçalho isoladamente
+import docx
 import io
 import os
 from datetime import date
@@ -87,7 +87,7 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
     if not objeto or not desc_necessidade:
         st.error("❌ Preencha pelo menos o Objeto e a Descrição da Necessidade para testar.")
     else:
-        with st.spinner("Processando tags do Word na nuvem..."):
+        with st.spinner("Processando ETP na nuvem..."):
             try:
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
@@ -101,16 +101,30 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     doc_tpl.save(buffer_intermediario)
                     buffer_intermediario.seek(0)
                     
-                    # 2. Abre usando python-docx tradicional para acessar o cabeçalho (Header)
+                    # 2. Abre usando python-docx tradicional para forçar a varredura do Cabeçalho
                     doc_final = docx.Document(buffer_intermediario)
                     
-                    # Percorre as seções para alterar o texto dentro do cabeçalho
+                    # Percorre todas as seções e tabelas de cabeçalho unificando o texto fragmentado pelo Word
                     for section in doc_final.sections:
                         header = section.header
                         if header is not None:
+                            # Varre parágrafos soltos no cabeçalho
                             for paragraph in header.paragraphs:
-                                if '{{ secretaria_demandante1 }}' in paragraph.text:
-                                    paragraph.text = paragraph.text.replace('{{ secretaria_demandante1 }}', secretaria)
+                                texto_completo = paragraph.text
+                                if '{{ secretaria_demandante1 }}' in texto_completo:
+                                    novo_texto = texto_completo.replace('{{ secretaria_demandante1 }}', secretaria)
+                                    # Limpa os fragmentos internos e define o texto limpo unificado
+                                    paragraph.text = novo_texto
+                            
+                            # Varre tabelas dentro do cabeçalho (comum em timbres oficiais)
+                            for table in header.tables:
+                                for row in table.rows:
+                                    for cell in row.cells:
+                                        for paragraph in cell.paragraphs:
+                                            texto_completo = paragraph.text
+                                            if '{{ secretaria_demandante1 }}' in texto_completo:
+                                                novo_texto = texto_completo.replace('{{ secretaria_demandante1 }}', secretaria)
+                                                paragraph.text = novo_texto
                     
                     # Envia o arquivo preenchido final para a memória de download
                     buffer = io.BytesIO()
