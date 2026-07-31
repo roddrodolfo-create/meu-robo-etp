@@ -77,7 +77,7 @@ dados_etp = {
     "demonstrativo_resultados": demonstrativo_res,
     "providencias_previas": providencias_previas,
     "contratacoes_correlatas": contratacoes_corr,
-    "impactos_ambientais": impacts_amb,
+    "impactos_ambientais": impactos_amb,
     "conclusao": conclusao,
     "data": date.today().strftime("%d/%m/%Y")
 }
