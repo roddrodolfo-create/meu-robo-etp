@@ -2,6 +2,7 @@ import streamlit as st
 from docxtpl import DocxTemplate
 import io
 import os
+import zipfile
 from datetime import date
 
 # Configuração visual profissional para smartphone
@@ -47,8 +48,8 @@ conclusao = st.text_area("13 - Conclusão")
 
 # --- CONSTRUÇÃO DO DICIONÁRIO DE DADOS ---
 dados_etp = {
-    "secretaria_demandante1": secretaria, # Tag corrigida do cabeçalho
-    "secretaria_demandante2": secretaria, # Tag da primeira tabela
+    "secretaria_demandante1": secretaria,
+    "secretaria_demandante2": secretaria,
     "objeto": objeto,
     "descricao_necessidade": desc_necessidade,
     "previsao_pac": previsao_pac,
@@ -75,12 +76,61 @@ dados_etp = {
     "demonstrativo_resultados": demonstrativo_res,
     "providencias_previas": providencias_previas,
     "contratacoes_correlatas": contratacoes_corr,
-    "impactos_ambientais": impactos_amb,
+    "impactos_ambientais": impacts_amb,
     "conclusao": conclusao,
     "data": date.today().strftime("%d/%m/%Y")
 }
 
 st.markdown("---")
+
+def forcar_substituicao_xml(caminho_modelo, texto_substituto):
+    """Substitui cirurgicamente a tag no arquivo XML interno do Word bypassando lixos de formatação"""
+    with open(caminho_modelo, 'rb') as f:
+        orig_bytes = f.read()
+        
+    in_buf = io.BytesIO(orig_bytes)
+    out_buf = io.BytesIO()
+    
+    # Lista de possíveis quebras e variações que o Word gera em segundo plano para a tag do cabeçalho
+    alvos_xml = [
+        '{{secretaria_demandante1}}',
+        '{{ secretaria_demandante1 }}',
+        '{ {secretaria_demandante1} }',
+        '{ { secretaria_demandante1 } }'
+    ]
+    
+    with zipfile.ZipFile(in_buf, 'r') as yin:
+        with zipfile.ZipFile(out_buf, 'w', zipfile.ZIP_DEFLATED) as yout:
+            for item in yin.infolist():
+                conteudo = yin.read(item.filename)
+                
+                # Se for um arquivo de cabeçalho (ex: word/header1.xml, header2.xml)
+                if "word/header" in item.filename and ".xml" in item.filename:
+                    # Converte o XML para string para fazer o replace de texto puro
+                    xml_str = conteudo.decode('utf-8', errors='ignore')
+                    
+                    # Se achar a tag inteira, substitui
+                    substituiu = False
+                    for alvo in alvos_xml:
+                        if alvo in xml_str:
+                            xml_str = xml_str.replace(alvo, texto_substituto)
+                            substituiu = True
+                            
+                    # Se o Word quebrou a tag com marcações XML internas de formatação (Runs)
+                    if not substituiu and 'secretaria_demandante1' in xml_str:
+                        import re
+                        # Expressão regular avançada para limpar marcações XML que dividem as chaves da palavra
+                        xml_str = re.sub(r'\{\{\s*<[^>]+>\s*secretaria_demandante1\s*<[^>]+>\s*\}\}', texto_substituto, xml_str)
+                        xml_str = re.sub(r'\{\s*<[^>]+>\s*\{\s*<[^>]+>\s*secretaria_demandante1\s*<[^>]+>\s*\}\s*<[^>]+>\s*\}', texto_substituto, xml_str)
+                        # Fallback agressivo: se a palavra chave pura estiver lá dentro do cabeçalho isolada
+                        xml_str = xml_str.replace('{{secretaria_demandante1}}', texto_substituto)
+                    
+                    conteudo = xml_str.encode('utf-8')
+                
+                yout.writestr(item, conteudo)
+                
+    out_buf.seek(0)
+    return out_buf
 
 # --- PROCESSAMENTO DO MODELO ---
 if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
@@ -92,13 +142,14 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
                 else:
-                    # Carrega o template
-                    doc = DocxTemplate("modelo_etp.docx")
+                    # 1. Aplica a correção de força bruta XML no cabeçalho primeiro
+                    buffer_cabecalho_corrigido = forcar_substituicao_xml("modelo_etp.docx", secretaria)
                     
-                    # LINHA MÁGICA: Habilita o preenchimento automático de cabeçalhos e rodapés
+                    # 2. Carrega o documento modificado no DocxTemplate para renderizar o corpo principal normalmente
+                    doc = DocxTemplate(buffer_cabecalho_corrigido)
                     doc.render(dados_etp, auto_header_footer=True)
                     
-                    # Envia o arquivo finalizado direto para o buffer
+                    # Envia o arquivo finalizado direto para o download do Streamlit
                     buffer = io.BytesIO()
                     doc.save(buffer)
                     buffer.seek(0)
