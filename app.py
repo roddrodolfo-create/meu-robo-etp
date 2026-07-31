@@ -139,9 +139,9 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     # 1. Aplica a correção forçada em todos os arquivos XML de cabeçalho primeiro
                     buffer_corrigido = forcar_substituicao_xml_avancada("modelo_etp.docx", secretaria)
                     
-                    # 2. Alimenta o DocxTemplate com o arquivo já modificado para fazer o resto do corpo
+                    # 2. Alimenta o DocxTemplate com o arquivo modificado (removido argumento auto_header_footer)
                     doc = DocxTemplate(buffer_corrigido)
-                    doc.render(dados_etp, auto_header_footer=True)
+                    doc.render(dados_etp)
                     
                     # Salva e prepara o download para o usuário
                     buffer_final = io.BytesIO()
@@ -159,3 +159,4 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                     )
             except Exception as e:
                 st.error(f"❌ Ocorreu um erro ao processar o documento: {e}")
+                 
