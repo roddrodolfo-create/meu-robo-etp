@@ -1,6 +1,5 @@
 import streamlit as st
 from docxtpl import DocxTemplate
-import docx
 import io
 import os
 from datetime import date
@@ -48,8 +47,8 @@ conclusao = st.text_area("13 - Conclusão")
 
 # --- CONSTRUÇÃO DO DICIONÁRIO DE DADOS ---
 dados_etp = {
-    "secretaria_demandante1": secretaria,
-    "secretaria_demandante2": secretaria,
+    "secretaria_demandante1": secretaria, # Tag corrigida do cabeçalho
+    "secretaria_demandante2": secretaria, # Tag da primeira tabela
     "objeto": objeto,
     "descricao_necessidade": desc_necessidade,
     "previsao_pac": previsao_pac,
@@ -76,36 +75,12 @@ dados_etp = {
     "demonstrativo_resultados": demonstrativo_res,
     "providencias_previas": providencias_previas,
     "contratacoes_correlatas": contratacoes_corr,
-    "impactos_ambientais": impacts_amb,
+    "impactos_ambientais": impactos_amb,
     "conclusao": conclusao,
     "data": date.today().strftime("%d/%m/%Y")
 }
 
 st.markdown("---")
-
-def substituir_no_cabecalho(paragraph, texto_substituto):
-    """Garante a unificação dos fragmentos de texto do Word e injeta a variável"""
-    if not paragraph.runs:
-        return
-        
-    # Agrupa o texto completo do parágrafo somando todos os fragmentos dele
-    texto_completo = "".join([run.text for run in paragraph.runs])
-    
-    # Mapeia variações comuns que o Word cria internamente com espaços
-    alvos = ['{{ secretaria_demandante1 }}', '{{secretaria_demandante1}}', '{{ secretaria_demandante1}}', '{{secretaria_demandante1 }}']
-    
-    substituiu = False
-    for alvo in alvos:
-        if alvo in texto_completo:
-            texto_completo = texto_completo.replace(alvo, texto_substituto)
-            substituiu = True
-            
-    if substituiu:
-        # Define o texto corrigido no primeiro fragmento do parágrafo
-        paragraph.runs[0].text = texto_completo
-        # Limpa todos os outros fragmentos subsequentes para não duplicar o texto visualmente
-        for i in range(1, len(paragraph.runs)):
-            paragraph.runs[i].text = ""
 
 # --- PROCESSAMENTO DO MODELO ---
 if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
@@ -117,35 +92,15 @@ if st.button("🚀 GERAR DOCUMENTO ETP OFICIAL"):
                 if not os.path.exists("modelo_etp.docx"):
                     st.error("❌ Erro: O arquivo 'modelo_etp.docx' não foi encontrado no servidor.")
                 else:
-                    # 1. Abre e preenche o corpo normal com DocxTemplate
-                    doc_tpl = DocxTemplate("modelo_etp.docx")
-                    doc_tpl.render(dados_etp)
+                    # Carrega o template
+                    doc = DocxTemplate("modelo_etp.docx")
                     
-                    # Salva temporariamente para interceptação mecânica do cabeçalho
-                    buffer_intermediario = io.BytesIO()
-                    doc_tpl.save(buffer_intermediario)
-                    buffer_intermediario.seek(0)
+                    # LINHA MÁGICA: Habilita o preenchimento automático de cabeçalhos e rodapés
+                    doc.render(dados_etp, auto_header_footer=True)
                     
-                    # 2. Varredura manual secundária focada no Cabeçalho das seções
-                    doc_final = docx.Document(buffer_intermediario)
-                    
-                    for section in doc_final.sections:
-                        header = section.header
-                        if header is not None:
-                            # Varre parágrafos avulsos no topo
-                            for paragraph in header.paragraphs:
-                                substituir_no_cabecalho(paragraph, secretaria)
-                            
-                            # Varre parágrafos contidos em tabelas/timbres do cabeçalho
-                            for table in header.tables:
-                                for row in table.rows:
-                                    for cell in row.cells:
-                                        for paragraph in cell.paragraphs:
-                                            substituir_no_cabecalho(paragraph, secretaria)
-                    
-                    # Envia o arquivo finalizado para o buffer do Streamlit
+                    # Envia o arquivo finalizado direto para o buffer
                     buffer = io.BytesIO()
-                    doc_final.save(buffer)
+                    doc.save(buffer)
                     buffer.seek(0)
                     
                     st.success("✅ ETP estruturado com sucesso!")
